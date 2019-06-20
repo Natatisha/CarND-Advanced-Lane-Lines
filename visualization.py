@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import matplotlib.cm as cm
 import math
 
 
@@ -24,4 +25,12 @@ def compare_two_img(img1, img2):
     ax1.imshow(img1)
     ax1.set_title('Before', fontsize=30)
     ax2.imshow(img2)
+    ax2.set_title('After', fontsize=30)
+
+
+def compare_with_binary(img, binary_img):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    ax1.imshow(img)
+    ax1.set_title('Before', fontsize=30)
+    ax2.imshow(binary_img, cmap=cm.gray)
     ax2.set_title('After', fontsize=30)
