@@ -45,7 +45,7 @@ def sobel_xy(img, sobel_kernel):
     return sobel_x, sobel_y
 
 
-def gradient_threshold(img, sobelx_thresh=(20, 110), sobely_thresh=(50, 200), magnitude_thresh=(40, 150),
+def combined_threshold(img, sobelx_thresh=(20, 110), sobely_thresh=(50, 200), magnitude_thresh=(40, 150),
                        sobel_kernel=3, dir_thresh=(0.7, 1.3), dir_sobel_kernel=15):
     gradx = abs_sobel_thresh(img, orient='x', sobel_kernel=sobel_kernel, thresh=sobelx_thresh)
     grady = abs_sobel_thresh(img, orient='y', sobel_kernel=sobel_kernel, thresh=sobely_thresh)
@@ -55,6 +55,10 @@ def gradient_threshold(img, sobelx_thresh=(20, 110), sobely_thresh=(50, 200), ma
     combined = np.zeros_like(dir_binary)
     combined[((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))] = 1
     return combined
+
+
+def gradient_threshold(img):
+    return abs_sobel_thresh(img, 'x', 3, (20, 110))
 
 
 def perspective_transform():
