@@ -45,8 +45,8 @@ def sobel_xy(img, sobel_kernel):
     return sobel_x, sobel_y
 
 
-def combined_threshold(img, sobelx_thresh=(20, 110), sobely_thresh=(50, 200), magnitude_thresh=(40, 150),
-                       sobel_kernel=3, dir_thresh=(0.7, 1.3), dir_sobel_kernel=15):
+def sobel_mag_dir_combined_threshold(img, sobelx_thresh=(20, 110), sobely_thresh=(50, 200), magnitude_thresh=(40, 150),
+                                     sobel_kernel=3, dir_thresh=(0.7, 1.3), dir_sobel_kernel=15):
     gradx = abs_sobel_thresh(img, orient='x', sobel_kernel=sobel_kernel, thresh=sobelx_thresh)
     grady = abs_sobel_thresh(img, orient='y', sobel_kernel=sobel_kernel, thresh=sobely_thresh)
     mag_binary = mag_thresh(img, sobel_kernel=sobel_kernel, thresh=magnitude_thresh)
@@ -59,6 +59,22 @@ def combined_threshold(img, sobelx_thresh=(20, 110), sobely_thresh=(50, 200), ma
 
 def gradient_threshold(img):
     return abs_sobel_thresh(img, 'x', 3, (20, 110))
+
+
+def s_channel_threshold(img, thresh=(170, 255)):
+    hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    s_channel = hls[:, :, 2]
+    s_binary = np.zeros_like(s_channel)
+    s_binary[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 1
+    return s_binary
+
+
+def threshold(img):
+    grad = gradient_threshold(img)
+    s_channel = s_channel_threshold(img)
+    combined_binary = np.zeros_like(grad)
+    combined_binary[(s_channel == 1) | (grad == 1)] = 1
+    return combined_binary
 
 
 def perspective_transform():
