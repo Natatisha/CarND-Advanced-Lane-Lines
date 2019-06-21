@@ -103,3 +103,12 @@ def find_lines_basepoints(binary_warped_img):
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
     return leftx_base, rightx_base
+
+
+def measure_curvature(y_eval, left_fit, right_fit, ym_per_pix):
+    left_curve_rad = ((1 + (2 * left_fit[0] * y_eval * ym_per_pix + left_fit[1]) ** 2) ** 1.5) / np.absolute(
+        2 * left_fit[0])
+    right_curve_rad = ((1 + (2 * right_fit[0] * y_eval * ym_per_pix + right_fit[1]) ** 2) ** 1.5) / np.absolute(
+        2 * right_fit[0])
+
+    return left_curve_rad, right_curve_rad
