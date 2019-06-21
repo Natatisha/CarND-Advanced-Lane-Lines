@@ -77,8 +77,10 @@ def threshold(img):
     return combined_binary
 
 
-def perspective_transform():
-    return None
+def perspective_transform(img, src_points, dst_points):
+    img_size = (img.shape[1], img.shape[0])
+    M = cv2.getPerspectiveTransform(src_points, dst_points)
+    return cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
 
 
 def fit_poly():

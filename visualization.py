@@ -34,3 +34,11 @@ def compare_with_binary(img, binary_img):
     ax1.set_title('Before', fontsize=30)
     ax2.imshow(binary_img, cmap=cm.gray)
     ax2.set_title('After', fontsize=30)
+
+
+def draw_poly_on_img(img, points):
+    plt.imshow(img)
+    polygon = plt.Polygon(points, fill=None, edgecolor='r')
+    plt.gca().add_patch(polygon)
+
+
