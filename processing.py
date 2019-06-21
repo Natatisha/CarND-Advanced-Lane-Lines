@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import pickle
 
 
 def abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(0, 255)):
@@ -77,15 +78,19 @@ def threshold(img):
     return combined_binary
 
 
+def save_perspective_points(src_points, dst_points, file_path='saved_checkpoints/perspective'):
+    dist_pickle = {"src": src_points, "dst": dst_points}
+    pickle.dump(dist_pickle, open(file_path + ".p", "wb"))
+
+
+def load_perspective_points(file_path='saved_checkpoints/perspective.p'):
+    dist_pickle = pickle.load(open(file_path, "rb"))
+    src = dist_pickle["src"]
+    dst = dist_pickle["dst"]
+    return src, dst
+
+
 def perspective_transform(img, src_points, dst_points):
     img_size = (img.shape[1], img.shape[0])
     M = cv2.getPerspectiveTransform(src_points, dst_points)
     return cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
-
-
-def fit_poly():
-    return None
-
-
-def find_radius():
-    return None

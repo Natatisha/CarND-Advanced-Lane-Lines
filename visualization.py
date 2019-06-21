@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.cm as cm
 import math
+import numpy as np
 
 
 def draw_lines():
@@ -42,3 +43,18 @@ def draw_poly_on_img(img, points):
     plt.gca().add_patch(polygon)
 
 
+def display_polynomial(img, left_fit, right_fit):
+    ploty = np.linspace(0, img.shape[0] - 1, img.shape[0])
+    try:
+        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+    except TypeError:
+        # Avoids an error if `left` and `right_fit` are still none or incorrect
+        print('The function failed to fit a line!')
+        left_fitx = 1 * ploty ** 2 + 1 * ploty
+        right_fitx = 1 * ploty ** 2 + 1 * ploty
+
+    # Plots the left and right polynomials on the lane lines
+    plt.imshow(img, cmap=cm.gray)
+    plt.plot(left_fitx, ploty, color='red')
+    plt.plot(right_fitx, ploty, color='red')
