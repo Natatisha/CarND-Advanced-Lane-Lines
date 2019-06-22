@@ -6,6 +6,7 @@ import math
 import numpy as np
 import cv2
 from enum import Enum
+import glob
 
 
 class Direction(Enum):
@@ -18,12 +19,11 @@ def draw_lines():
 
 
 def show_img_grid(folder_path, num_columns=3, figsize=(16, 16)):
-    images = os.listdir(folder_path)
+    images = [f for f in glob.glob(folder_path + "/*.jpg")]
     fig = plt.figure(figsize=figsize)
     rows = math.ceil(len(images) / num_columns)
     for i, img_path in enumerate(images):
-        path = folder_path + "/" + img_path
-        img = mpimg.imread(path)
+        img = mpimg.imread(img_path)
         fig.add_subplot(rows, num_columns, i + 1)
         plt.imshow(img)
 
@@ -82,6 +82,8 @@ def draw_lane(image, warped_image, Minv, left_fit, right_fit):
 
     # Draw the lane onto the warped blank image
     cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+    cv2.polylines(color_warp, np.int_([pts_left]), False, (255, 0, 0), 6)
+    cv2.polylines(color_warp, np.int_([pts_right]), False, (0, 0, 255), 6)
 
     newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
     result = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
