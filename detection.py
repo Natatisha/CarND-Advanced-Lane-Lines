@@ -105,10 +105,31 @@ def find_lines_basepoints(binary_warped_img):
     return leftx_base, rightx_base
 
 
-def measure_curvature(y_eval, left_fit, right_fit, ym_per_pix):
-    left_curve_rad = ((1 + (2 * left_fit[0] * y_eval * ym_per_pix + left_fit[1]) ** 2) ** 1.5) / np.absolute(
-        2 * left_fit[0])
-    right_curve_rad = ((1 + (2 * right_fit[0] * y_eval * ym_per_pix + right_fit[1]) ** 2) ** 1.5) / np.absolute(
-        2 * right_fit[0])
+def measure_curvature(leftx, lefty, righty, rightx, lane_length_m=20., lane_width_m=3.7, lane_length_pix=720,
+                      lane_width_pix=700):
+    ym_per_pix = lane_length_m / lane_length_pix
+    xm_per_pix = lane_width_m / lane_width_pix
 
-    return left_curve_rad, right_curve_rad
+    left_fit = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
+    right_fit = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
+
+    left_curverad = ((1. + (2. * left_fit[0] * np.max(lefty) * ym_per_pix + left_fit[1]) ** 2) ** 1.5) / (
+        np.absolute(2. * left_fit[0]))
+    right_curverad = ((1. + (2. * right_fit[0] * np.max(righty) * ym_per_pix + right_fit[1]) ** 2) ** 1.5) / (
+        np.absolute(2. * right_fit[0]))
+
+    return (left_curverad + right_curverad) / 2.
+
+
+def calc_vehicle_shift_m(leftx, rightx, img_width, lane_width_m=3.7):
+    # take bottom pixels that are closer to the vehicle
+    left_line = np.mean(leftx[:50])
+    right_line = np.mean(rightx[:50])
+
+    center_of_lane = (right_line - left_line) / 2 + left_line
+
+    dist_left = center_of_lane
+    dist_right = img_width - center_of_lane
+    # scale for meters
+    xm_per_pix = lane_width_m / (right_line - left_line)
+    return (dist_right - dist_left) * xm_per_pix

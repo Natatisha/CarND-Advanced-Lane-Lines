@@ -5,6 +5,12 @@ import matplotlib.cm as cm
 import math
 import numpy as np
 import cv2
+from enum import Enum
+
+
+class Direction(Enum):
+    LEFT = 0
+    RIGHT = 1
 
 
 def draw_lines():
@@ -57,12 +63,11 @@ def display_polynomial(img, left_fit, right_fit):
 
     # Plots the left and right polynomials on the lane lines
     plt.imshow(img, cmap=cm.gray)
-    plt.plot(left_fitx, ploty, color='red')
-    plt.plot(right_fitx, ploty, color='red')
+    plt.plot(left_fitx, ploty, color='r')
+    plt.plot(right_fitx, ploty, color='r')
 
 
 def draw_lane(image, warped_image, Minv, left_fit, right_fit):
-
     ploty = np.linspace(0, warped_image.shape[0] - 1, warped_image.shape[0])
     left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
     right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
@@ -80,4 +85,14 @@ def draw_lane(image, warped_image, Minv, left_fit, right_fit):
 
     newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
     result = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
-    plt.imshow(result)
+    return result
+
+
+def display_pos_and_curvature(image, shift_meters: float, direction: Direction, curv_rad: float):
+    curv_text = "Radius of lane curvature: {:.2f}m".format(curv_rad)
+    curv_text_org = (int(image.shape[1] * .05), int(image.shape[0] * .1))
+    pos_text = "Vehicle is {:.2f}m {} from center".format(shift_meters, direction.name.lower())
+    pos_text_org = (int(image.shape[1] * .05), int(image.shape[0] * .2))
+    cv2.putText(image, curv_text, curv_text_org, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
+    cv2.putText(image, pos_text, pos_text_org, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
+    return image
