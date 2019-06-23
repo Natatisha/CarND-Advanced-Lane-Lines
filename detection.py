@@ -1,30 +1,4 @@
 import numpy as np
-import cv2
-
-
-# Define a class to receive the characteristics of each line detection
-class Line():
-    def __init__(self):
-        # was the line detected in the last iteration?
-        self.detected = False
-        # x values of the last n fits of the line
-        self.recent_xfitted = []
-        # average x values of the fitted line over the last n iterations
-        self.bestx = None
-        # polynomial coefficients averaged over the last n iterations
-        self.best_fit = None
-        # polynomial coefficients for the most recent fit
-        self.current_fit = [np.array([False])]
-        # radius of curvature of the line in some units
-        self.radius_of_curvature = None
-        # distance in meters of vehicle center from the line
-        self.line_base_pos = None
-        # difference in fit coefficients between last and new fits
-        self.diffs = np.array([0, 0, 0], dtype='float')
-        # x values for detected line pixels
-        self.allx = None
-        # y values for detected line pixels
-        self.ally = None
 
 
 def sliding_window(binary_warped_img, nwindows=9, margin=100, minpix=50):
@@ -121,10 +95,30 @@ def measure_curvature(leftx, lefty, righty, rightx, lane_length_m=20., lane_widt
     return (left_curverad + right_curverad) / 2.
 
 
-def calc_vehicle_shift_m(leftx, rightx, img_width, lane_width_m=3.7):
-    # take bottom pixels that are closer to the vehicle
-    left_line = np.mean(leftx[:50])
-    right_line = np.mean(rightx[:50])
+def calc_lines_dist(y_eval, left_fit, right_fit, convert_to_meters=False, lane_width_m=3.7, lane_width_pix=700):
+    left_x = left_fit[0] * y_eval ** 2 + left_fit[1] * y_eval + left_fit[2]
+    right_x = right_fit[0] * y_eval ** 2 + right_fit[1] * y_eval + right_fit[2]
+    dist = right_x - left_x
+    return dist if not convert_to_meters else dist * (lane_width_m / lane_width_pix)
+
+
+def check_if_parallel(img_height, left_fit, right_fit, std_delta=70):
+    points = [point for point in range(0, img_height, int(img_height / 4))]
+    distances = [calc_lines_dist(p, left_fit, right_fit, convert_to_meters=False) for p in points]
+    return all(i > 0 for i in distances) and np.std(distances) <= std_delta
+
+
+def calc_lane_width(img_height, left_fit, right_fit):
+    points = [point for point in range(0, img_height, int(img_height / 4))]
+    distances_m = [np.abs(calc_lines_dist(p, left_fit, right_fit, convert_to_meters=True)) for p in points]
+    print(distances_m)
+    return np.mean(distances_m)
+
+
+def calc_vehicle_shift_m(lefty, left_fit, right_fit, img_width, lane_width_m=3.7, lane_width_pix=700):
+    y_eval = np.max(lefty)
+    left_line = left_fit[0] * y_eval ** 2 + left_fit[1] * y_eval + left_fit[2]
+    right_line = right_fit[0] * y_eval ** 2 + right_fit[1] * y_eval + right_fit[2]
 
     center_of_lane = (right_line - left_line) / 2 + left_line
 
