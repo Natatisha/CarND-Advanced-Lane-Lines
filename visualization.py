@@ -98,3 +98,9 @@ def display_pos_and_curvature(image, shift_meters: float, direction: Direction, 
     cv2.putText(image, curv_text, curv_text_org, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
     cv2.putText(image, pos_text, pos_text_org, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
     return image
+
+
+def display_text(image, text):
+    text_org = (int(image.shape[1] * .05), int(image.shape[0] * .1))
+    cv2.putText(image, text, text_org, cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3, cv2.LINE_AA)
+    return image
