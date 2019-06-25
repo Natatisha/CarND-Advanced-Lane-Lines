@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def sliding_window(binary_warped_img, nwindows=9, margin=100, minpix=50):
+def sliding_window(binary_warped_img, nwindows=11, margin=80, minpix=30):
     leftx_base, rightx_base = find_lines_basepoints(binary_warped_img)
 
     window_height = np.int(binary_warped_img.shape[0] // nwindows)
@@ -39,10 +39,12 @@ def sliding_window(binary_warped_img, nwindows=9, margin=100, minpix=50):
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
 
-        if len(good_left_inds) > minpix:
+        if len(good_left_inds) >= minpix:
             leftx_current = np.mean(nonzerox[good_left_inds], dtype=np.int32)
         if len(good_right_inds) > minpix:
             rightx_current = np.mean(nonzerox[good_right_inds], dtype=np.int32)
+        if len(good_left_inds) < minpix or len(good_right_inds) < minpix:
+            leftx_current, rightx_current = find_lines_basepoints(binary_warped_img)
 
     # Concatenate the arrays of indices (previously was a list of lists of pixels)
     try:
@@ -120,7 +122,7 @@ def calc_lines_dist(y_eval, left_fit, right_fit, convert_to_meters=False, lane_w
     return dist if not convert_to_meters else dist * (lane_width_m / lane_width_pix)
 
 
-def check_if_parallel(img_height, left_fit, right_fit, std_delta=70):
+def check_if_parallel(img_height, left_fit, right_fit, std_delta=50):
     points = [point for point in range(0, img_height, int(img_height / 4))]
     distances = [calc_lines_dist(p, left_fit, right_fit, convert_to_meters=False) for p in points]
     return all(i > 0 for i in distances) and np.std(distances) <= std_delta
