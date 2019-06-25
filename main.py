@@ -14,18 +14,22 @@ STANDARD_LANE_PARAMS = {
 }
 
 
+def process_params(lane_params: dict):
+    w_px = lane_params["width_px"] if "width_px" in lane_params else STANDARD_LANE_PARAMS["width_px"]
+    l_px = lane_params["length_px"] if "length_px" in lane_params else STANDARD_LANE_PARAMS["length_px"]
+    w_met = lane_params["width_m"] if "width_m" in lane_params else STANDARD_LANE_PARAMS["width_m"]
+    l_met = lane_params["length_m"] if "length_m" in lane_params else STANDARD_LANE_PARAMS["length_m"]
+    return w_px, l_px, w_met, l_met
+
+
 class Line:
     def __init__(self, fit_coeffs, x_vals, y_vals):
-
         # x values of the last n fits of the line
         self.recent_x_fitted = [x_vals]
         self.recent_y_fitted = [y_vals]
 
         # average x values of the fitted line over the last n iterations
-        self.bestx = [np.mean(x_vals)]
-
-        # polynomial coefficients averaged over the last n iterations
-        self.best_fit = None
+        self.bestx = np.mean(x_vals)
 
         # polynomial coefficients for the most recent fit
         self.current_fit = fit_coeffs
@@ -33,48 +37,22 @@ class Line:
         # radius of curvature of the line in some units
         self.radius_of_curvature = self.measure_curvature_pix(y_vals, fit_coeffs)
 
-        # distance in meters of vehicle center from the line
-        self.line_base_pos = None
-
-        # difference in fit coefficients between last and new fits
-        self.diffs = np.array([0, 0, 0], dtype='float')
-
-        # x values for detected line pixels
-        self.allx = None
-
-        # y values for detected line pixels
-        self.ally = None
-
-    def add_fit(self, fit_coeffs, x_vals, y_vals):
-        self.diffs = np.absolute(self.current_fit - fit_coeffs)
-        self.current_fit = fit_coeffs
-        self.recent_x_fitted.append(x_vals)
-        self.recent_y_fitted.append(y_vals)
-        self.bestx.append(np.mean(x_vals))
-        self.radius_of_curvature = self.measure_curvature_pix(y_vals, fit_coeffs)
-
     @staticmethod
     def measure_curvature_pix(y, fit_coeffs):
         return ((1. + (2. * fit_coeffs[0] * np.max(y) + fit_coeffs[1]) ** 2) ** 1.5) / (
             np.absolute(2. * fit_coeffs[0]))
 
-    def check_similar_curvature(self, new_fit, new_y, coeff_deltas=[0.1, 0.1, 0.1], curve_rad_delta=100):
-        similar_fit = True
-        for old, new, delta in zip(self.current_fit, new_fit, coeff_deltas):
-            if np.absolute(old - new) > delta:
-                similar_fit = False
-
-        new_curverad = self.measure_curvature_pix(new_y, new_fit)
-        return np.absolute(self.radius_of_curvature - new_curverad) < curve_rad_delta
-
 
 class Lane:
     def __init__(self, origin, warped_img, transpose_mtx, transpose_mtx_inv, left_line: Line, right_line: Line,
-                 prev_curv):
-        self.standard_lane_width_m = 3.7
-        self.standard_lane_length_m = 20.
-        self.standard_lane_length_pix = 720
-        self.standard_lane_width_pix = 700
+                 prev_left: Line, prev_right: Line, lane_params):
+        standard_lane_width_pix, standard_lane_length_pix, \
+        standard_lane_width_m, standard_lane_length_m = process_params(lane_params)
+
+        self.standard_lane_width_m = standard_lane_width_m
+        self.standard_lane_length_m = standard_lane_length_m
+        self.standard_lane_length_pix = standard_lane_length_pix
+        self.standard_lane_width_pix = standard_lane_width_pix
         self.ym_per_pix = self.standard_lane_length_m / self.standard_lane_length_pix
         self.xm_per_pix = self.standard_lane_width_m / self.standard_lane_width_pix
 
@@ -88,7 +66,10 @@ class Lane:
         self.radius_of_curvature_m = self.measure_curvature(
             left_x=self.left.recent_x_fitted[-1], left_y=self.left.recent_y_fitted[-1],
             right_x=self.right.recent_x_fitted[-1], right_y=self.right.recent_y_fitted[-1])
-        self.detected = self.sanity_check(warped_img, left_line, right_line, prev_curv)
+        self.lane_width_m = det.calc_lane_width(warped_img.shape[0], left_line.current_fit, right_line.current_fit,
+                                                lane_width_m=self.standard_lane_width_m,
+                                                lane_width_pix=self.standard_lane_width_pix)
+        self.detected = self.sanity_check(warped_img, left_line, right_line, prev_left, prev_right)
         self.vehicle_shift_m = self.calc_vehicle_shift_m()
 
     def measure_curvature(self, left_x, left_y, right_x, right_y):
@@ -115,44 +96,44 @@ class Lane:
         dist_right = self.binary_warped.shape[1] - center_of_lane
         return (dist_right - dist_left) * self.xm_per_pix
 
-    def sanity_check(self, warped_img, left_line: Line, right_line: Line, prev_curvature, delta_lane_w=0.7,
-                     delta_curv=300):
-        lane_w_diff = np.absolute(self.standard_lane_width_m -
-                                  det.calc_lane_width(warped_img.shape[0], left_line.current_fit,
-                                                      right_line.current_fit,
-                                                      lane_width_m=self.standard_lane_width_m,
-                                                      lane_width_pix=self.standard_lane_width_pix))
+    def sanity_check(self, warped_img, left_line: Line, right_line: Line, prev_left: Line, prev_right: Line,
+                     delta_lane_w=0.5, delta_curv=300, delta_x_pos=50, min_curv=300., max_curv=3000.):
+        lane_w_diff = np.absolute(self.standard_lane_width_m - self.lane_width_m)
         lane_w_ok = lane_w_diff <= delta_lane_w
 
         parallel = det.check_if_parallel(warped_img.shape[0], left_line.current_fit, right_line.current_fit)
 
-        curv_ok = prev_curvature is None or np.absolute(self.radius_of_curvature_m - prev_curvature) <= delta_curv
+        prev_curvature = None if prev_right is None or prev_left is None else self.measure_curvature(
+            left_x=prev_left.recent_x_fitted[-1], left_y=prev_left.recent_y_fitted[-1],
+            right_x=prev_right.recent_x_fitted[-1], right_y=prev_right.recent_y_fitted[-1])
+        curv_ok = (prev_curvature is None or np.absolute(self.radius_of_curvature_m - prev_curvature) <= delta_curv) \
+                  and min_curv <= self.radius_of_curvature_m <= max_curv
 
-        return lane_w_ok and parallel and curv_ok
+        left_x_shift = 0 if prev_left is None else np.absolute(left_line.bestx - prev_left.bestx)
+        right_x_shift = 0 if prev_right is None else np.absolute(right_line.bestx - prev_right.bestx)
+        lines_x_ok = left_x_shift <= delta_x_pos and right_x_shift <= delta_x_pos
+
+        return lane_w_ok and parallel and curv_ok and lines_x_ok
 
     def draw(self):
         res = vs.draw_lane(self.origin_img, self.binary_warped, self.M_inv,
                            self.left.current_fit, self.right.current_fit)
-        coeffs = "curv {} OK {}".format(self.radius_of_curvature_m, self.detected)
-        # res = vs.display_text(res, "GOOD" if self.detected else "BAD")
-        res = vs.display_text(res, coeffs)
-
-        # dir = vs.Direction.RIGHT if vehicle_shift_m >= 0 else vs.Direction.LEFT
-        # res_text = vs.display_pos_and_curvature(res, np.absolute(vehicle_shift_m), dir, curv_rad)
+        dir = vs.Direction.RIGHT if self.vehicle_shift_m >= 0 else vs.Direction.LEFT
+        res = vs.display_pos_and_curvature(res, np.absolute(self.vehicle_shift_m), dir, self.radius_of_curvature_m)
         return res
 
 
 def find_road_lane(img_path, stand_lane_params=STANDARD_LANE_PARAMS):
     img = mpimg.imread(img_path)
-    res = find_lane(img, None)
+    res = find_lane(img, None, stand_lane_params).draw()
     return cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
 
 
 def find_lane(img, prev_lane: Lane, standard_lane_params=STANDARD_LANE_PARAMS):
     mtx, dst = cam.load_calibration_results()
     undistort = cam.undistort(img, mtx, dst, True)
-
-    binary = pr.threshold(undistort)
+    process = pr.prepare_for_thresholding(img)
+    binary = pr.threshold(process)
     src, dst = pr.load_perspective_points()
     M, Minv, binary_warped = pr.perspective_transform(binary, src, dst)
 
@@ -166,23 +147,15 @@ def find_lane(img, prev_lane: Lane, standard_lane_params=STANDARD_LANE_PARAMS):
 
     left_line = Line(left_fit, leftx, lefty)
     right_line = Line(right_fit, rightx, righty)
-    prev_curv = None if prev_lane is None else prev_lane.radius_of_curvature_m
-    lane = Lane(undistort, binary_warped, M, Minv, left_line, right_line, prev_curv)
+    prev_left = None if prev_lane is None else prev_lane.left
+    prev_right = None if prev_lane is None else prev_lane.right
+    lane = Lane(undistort, binary_warped, M, Minv, left_line, right_line, prev_left, prev_right, standard_lane_params)
 
-    # isSane = "GOOD" if sanity_check(binary_warped, left_fit, right_fit) else "BAD"
-
-    # curv_rad = det.measure_curvature(leftx, lefty, righty, rightx)
-    # vehicle_shift_m = det.calc_vehicle_shift_m(leftx, rightx, binary_warped.shape[1])
-    # res = vs.draw_lane(img, binary_warped, Minv, left_fit, right_fit)
-    # res = vs.display_text(res, isSane)
-    # dir = vs.Direction.RIGHT if vehicle_shift_m >= 0 else vs.Direction.LEFT
-    # res_text = vs.display_pos_and_curvature(res, np.absolute(vehicle_shift_m), dir, curv_rad)
     return lane
 
 
 def find_lane_on_video(video_path, out_path='output_videos', output_name='output',
                        standard_lane_params=STANDARD_LANE_PARAMS):
-
     cap = cv2.VideoCapture(video_path)
 
     fourcc = cv2.VideoWriter_fourcc(*'MP4V')
@@ -191,14 +164,14 @@ def find_lane_on_video(video_path, out_path='output_videos', output_name='output
     lane = None
     step = 0
     last_success_step = 0
-    wait_steps = 10
+    wait_steps = 25
 
     while cap.isOpened():
         ret, frame = cap.read()
 
         if ret:
             step += 1
-            new_lane = find_lane(frame, lane)
+            new_lane = find_lane(frame, lane, standard_lane_params)
             if new_lane.detected:
                 last_success_step = step
                 lane = new_lane  # success, use this lane for next lane detection
