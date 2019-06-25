@@ -41,10 +41,13 @@ def sliding_window(binary_warped_img, nwindows=11, margin=80, minpix=30):
 
         if len(good_left_inds) >= minpix:
             leftx_current = np.mean(nonzerox[good_left_inds], dtype=np.int32)
+        else:
+            leftx_current = leftx_base
+
         if len(good_right_inds) > minpix:
             rightx_current = np.mean(nonzerox[good_right_inds], dtype=np.int32)
-        if len(good_left_inds) < minpix or len(good_right_inds) < minpix:
-            leftx_current, rightx_current = find_lines_basepoints(binary_warped_img)
+        else:
+            rightx_current = rightx_base
 
     # Concatenate the arrays of indices (previously was a list of lists of pixels)
     try:
