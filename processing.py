@@ -3,6 +3,20 @@ import numpy as np
 import pickle
 
 
+def gamma_correction(img, gamma=1.):
+    lookUpTable = np.empty((1, 256), np.uint8)
+    for i in range(256):
+        lookUpTable[0, i] = np.clip(pow(i / 255.0, gamma) * 255.0, 0, 255)
+    corrected_img = cv2.LUT(img, lookUpTable)
+    return corrected_img
+
+
+def prepare_for_thresholding(img, blur_krn_size=3, gamma=0.7):
+    corrected = gamma_correction(img, gamma)
+    blured = cv2.GaussianBlur(corrected, (blur_krn_size, blur_krn_size), 0)
+    return blured
+
+
 def abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(0, 255)):
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     if orient == 'x':
