@@ -61,6 +61,24 @@ def sliding_window(binary_warped_img, nwindows=9, margin=100, minpix=50):
     return leftx, lefty, rightx, righty
 
 
+def search_around_poly(binary_warped, left_fit, right_fit, margin=100):
+    nonzero = binary_warped.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
+    poly_left = left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2]
+    poly_right = right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2]
+    left_lane_inds = (nonzerox > (poly_left - margin)) & (nonzerox < (poly_left + margin))
+    right_lane_inds = (nonzerox > (poly_right - margin)) & (nonzerox < (poly_right + margin))
+
+    leftx = nonzerox[left_lane_inds]
+    lefty = nonzeroy[left_lane_inds]
+    rightx = nonzerox[right_lane_inds]
+    righty = nonzeroy[right_lane_inds]
+
+    return leftx, lefty, rightx, righty
+
+
 def fit_poly(leftx, lefty, rightx, righty):
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
@@ -108,14 +126,14 @@ def check_if_parallel(img_height, left_fit, right_fit, std_delta=70):
     return all(i > 0 for i in distances) and np.std(distances) <= std_delta
 
 
-def calc_lane_width(img_height, left_fit, right_fit):
+def calc_lane_width(img_height, left_fit, right_fit, lane_width_m=3.7, lane_width_pix=700):
     points = [point for point in range(0, img_height, int(img_height / 4))]
-    distances_m = [np.abs(calc_lines_dist(p, left_fit, right_fit, convert_to_meters=True)) for p in points]
-    print(distances_m)
+    distances_m = [np.abs(calc_lines_dist(p, left_fit, right_fit, convert_to_meters=True, lane_width_m=lane_width_m,
+                                          lane_width_pix=lane_width_pix)) for p in points]
     return np.mean(distances_m)
 
 
-def calc_vehicle_shift_m(lefty, left_fit, right_fit, img_width, lane_width_m=3.7, lane_width_pix=700):
+def calc_vehicle_shift_m(lefty, left_fit, right_fit, img_width, lane_width_m=3.7):
     y_eval = np.max(lefty)
     left_line = left_fit[0] * y_eval ** 2 + left_fit[1] * y_eval + left_fit[2]
     right_line = right_fit[0] * y_eval ** 2 + right_fit[1] * y_eval + right_fit[2]
