@@ -70,7 +70,7 @@ All the code related to lines detection is in [`detection.py`](detection.py) fil
 
 Now when we have thresholded and warped binary, we can find lane lines and fit them with a polynomial. 
 If we don’t have any info from the previous fit, we need to perform the sliding window algorithm. The code for this algorithm is taken from lesson quiz and encapsulated in `detection.sliding_window`  function. The underlying logic is following: we take the bottom part of an image (which is closer to the vehicle), detect left and right lines basepoint by finding the peaks in the summed pixel values along the image x-axis. 
-After that, we move piece-by-piece from these basepoints from bottom to the top and save all non-zero pixels in the `window`. The only difference from the code in the quiz is that if the line was not detected in the current window(len(good_inds) >= minpix) we return window center to basepoint instead of placing above the current. 
+After that, we move piece-by-piece from these basepoints from bottom to the top and save all non-zero pixels in the `window`. The only difference from the code in the quiz is that if the line was not detected in the current window(`len(good_inds) >= minpix`) we return window center to basepoint instead of placing above the current. 
 Now when we have all pixels, associated with left and right lane lines, we can fit them with two polynomials. I do it in `detection.fit_poly` function, which returns second order polynomial coefficients for left and right lines. 
 If we already have a polynomial from a previously detected line, we can skip the sliding window step and run `detection.search_around_poly` function, which performs lookup around polynomial lines in a given margin.
 ![Results of polynomial fit](writeup_images/poly.png)
@@ -79,6 +79,7 @@ If we already have a polynomial from a previously detected line, we can skip the
 
 To measure lane curvature, we need to calculate it in meters for each lane line and find it’s average. 
 To calculate the curvature in meters, I used the formula from the lesson, the point, in which we’d like to know the curvature is the bottom of an image (the closest to the vehicle point). 
+
 To correctly calculate the curvature in meters we should know the lane width and length in both pixels and meters. 
 So we know that line width in meters is 3.2, and the line height in pixels is equal to an image height. But we need to get lane width in pixels and lane length in meters. 
 We can measure lane width in pixels by looking at the bottom pixels of right and left lines at the warped image and calculating the difference between them. The trickier part is the lane length: we can look at the warped image and count lane segments, as each segment and a gap is around 3-4 meters long. 
@@ -95,12 +96,12 @@ For test images and basic video, these values are:
 For more code and less words check out `detection.measure_curvature` function. 
 
 To measure the vehicle position with respect to the center, I’ve created `detection.calc_vehicle_shift_m` function, which logic is the following: 
-define `y_eval` which is the point at the y-axis, at which we measure the vehicle shift
-get right and lane positions at this point 
-find the center of the road lane which is the central point between right and left lines
-the distance from the left image border to the lane center would be the center point, calculated above 
-the distance from the right border to the lane center would be `img_width - center_of_lane`
-the resulting position would be the difference between the distance from the left image border to the lane center and the distance from the right border to the lane center scaled by meters (because all previous calculation were in pixels).
+- define `y_eval` which is the point at the y-axis, at which we measure the vehicle shift
+- get right and lane positions at this point 
+- find the center of the road lane which is the central point between right and left lines
+- the distance from the left image border to the lane center would be the center point, calculated above 
+- the distance from the right border to the lane center would be `img_width - center_of_lane`
+- the resulting position would be the difference between the distance from the left image border to the lane center and the distance from the right border to the lane center scaled by meters (because all previous calculation were in pixels).
 
 ### Putting all together
 
@@ -111,20 +112,22 @@ Results of test images lane detection:
 ### Processing the video
 Processing the video needs more complicated logic (which is encapsulated in `main.find_lane_on_video` function). As the video is the sequence of images, we can go farther than just using the same algorithm as for the pictures to find the road lanes. We can use the lane detected on the previous frame to improve line detection on the current frame. 
 So the essential points of my video processing logic are: 
-I’ve created `Line` and `Lane` classes to share the information between frames I’ve created (`Line` is taken from the lesson and modified). 
-To define whether the lane was detected correctly and we can use this info for the next frame, class `Lane` contains `sanity_check` function which assumes, that the road lane is detected correctly if:
-lane width is about standard (3.2 meters)
-left and right lines are more or less parallel 
-the lane curvature doesn’t differ much from the previous lane curvature 
-the left and right lines positions haven’t changed much of the prior frame 
+1. I’ve created `Line` and `Lane` classes to share the information between frames I’ve created (`Line` is taken from the lesson and modified). 
+
+2. To define whether the lane was detected correctly and we can use this info for the next frame, class `Lane` contains `sanity_check` function which assumes, that the road lane is detected correctly if:
+ - lane width is about standard (3.2 meters)
+ - left and right lines are more or less parallel 
+ - the lane curvature doesn’t differ much from the previous lane curvature 
+ - the left and right lines positions haven’t changed much of the prior frame 
+ 
 3. If the algorithm fails to detect lane which passes sanity check, we use fit from the last successfully detected lane for smoothing the results and avoiding road “jumping” from frame to frame. But this won’t work for too long, so if we fail to detect lane for 25 (`wait_steps`) frames in a row, we need to start over, perform sliding window search, etc. etc.
 
-You can check out the results of `project_video` processing below.  
+  
 ![Result video gif](writeup_images/project_video_result.gif)
 
 For challenge video, I’ve changed some parameters for conversion pixels to meters, because the lane is more narrow at this video, and it didn’t pass the sanity check for the line width with previous values. The results are far from perfect, but much better than just frame-after-frame processing. 
 
-Harder challenge results are humiliating, so I won’t even create a gif for this video. 
+Harder challenge results are just very sad :( 
   
-To see all results check out [project_video.mp4](project_video.mp4), [challenge_video.mp4](challenge_video.mp4) and [harder_challenge_video.mp4](harder_challenge_video.mp4)
+To see all results check out [project_video.mp4](output_videos/project_video.mp4), [challenge_video.mp4](output_videos/challenge_video.mp4) and [harder_challenge_video.mp4](output_videos/harder_challenge_video.mp4)
 
