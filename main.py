@@ -63,6 +63,7 @@ class Lane:
 
         self.left = left_line
         self.right = right_line
+        self.smooth_lines(prev_right, prev_left)
         self.radius_of_curvature_m = self.measure_curvature(
             left_x=self.left.recent_x_fitted[-1], left_y=self.left.recent_y_fitted[-1],
             right_x=self.right.recent_x_fitted[-1], right_y=self.right.recent_y_fitted[-1])
@@ -71,6 +72,15 @@ class Lane:
                                                 lane_width_pix=self.standard_lane_width_pix)
         self.detected = self.sanity_check(warped_img, left_line, right_line, prev_left, prev_right)
         self.vehicle_shift_m = self.calc_vehicle_shift_m()
+
+    @staticmethod
+    def smooth(prev, curr, coeficient=0.4):
+        return curr * coeficient + prev * (1 - coeficient)
+
+    def smooth_lines(self, prev_r, prev_l):
+        if prev_r is not None and prev_l is not None:
+            self.right.current_fit = self.smooth(prev_r.current_fit, self.right.current_fit)
+            self.left.current_fit = self.smooth(prev_l.current_fit, self.left.current_fit)
 
     def measure_curvature(self, left_x, left_y, right_x, right_y):
         left_fit = np.polyfit(left_y * self.ym_per_pix, left_x * self.xm_per_pix, 2)
