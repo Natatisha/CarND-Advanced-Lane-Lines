@@ -20,7 +20,7 @@ STANDARD_LANE_PARAMS = {
     "length_m": 20.
 }
 
-MODE = Mode.DEBUG
+MODE = Mode.PROD
 
 
 def process_params(lane_params: dict):
