@@ -5,6 +5,13 @@ import processing as pr
 import detection as det
 import visualization as vs
 import cv2
+from enum import Enum
+
+
+class Mode(Enum):
+    PROD = 0,
+    DEBUG = 1
+
 
 STANDARD_LANE_PARAMS = {
     "width_px": 700,
@@ -12,6 +19,8 @@ STANDARD_LANE_PARAMS = {
     "width_m": 3.7,
     "length_m": 20.
 }
+
+MODE = Mode.DEBUG
 
 
 def process_params(lane_params: dict):
@@ -64,6 +73,9 @@ class Lane:
         self.left = left_line
         self.right = right_line
         self.smooth_lines(prev_right, prev_left)
+
+        self.report = ""
+
         self.radius_of_curvature_m = self.measure_curvature(
             left_x=self.left.recent_x_fitted[-1], left_y=self.left.recent_y_fitted[-1],
             right_x=self.right.recent_x_fitted[-1], right_y=self.right.recent_y_fitted[-1])
@@ -107,29 +119,42 @@ class Lane:
         return (dist_right - dist_left) * self.xm_per_pix
 
     def sanity_check(self, warped_img, left_line: Line, right_line: Line, prev_left: Line, prev_right: Line,
-                     delta_lane_w=0.5, delta_curv=300, delta_x_pos=50, min_curv=300., max_curv=3000.):
-        lane_w_diff = np.absolute(self.standard_lane_width_m - self.lane_width_m)
-        lane_w_ok = lane_w_diff <= delta_lane_w
+                     delta_lane_w=(0.7, -0.3), delta_curv=300, delta_x_pos=50, min_curv=300., max_curv=3000.):
+        lane_w_diff = self.standard_lane_width_m - self.lane_width_m
+        lane_w_ok = delta_lane_w[1] <= lane_w_diff <= delta_lane_w[0]
+        if not lane_w_ok:
+            self.report += "lane w={}, diff={} ".format(self.lane_width_m, lane_w_diff)
 
         parallel = det.check_if_parallel(warped_img.shape[0], left_line.current_fit, right_line.current_fit)
+        if not parallel:
+            self.report += "not || "
 
         prev_curvature = None if prev_right is None or prev_left is None else self.measure_curvature(
             left_x=prev_left.recent_x_fitted[-1], left_y=prev_left.recent_y_fitted[-1],
             right_x=prev_right.recent_x_fitted[-1], right_y=prev_right.recent_y_fitted[-1])
         curv_ok = (prev_curvature is None or np.absolute(self.radius_of_curvature_m - prev_curvature) <= delta_curv) \
                   and min_curv <= self.radius_of_curvature_m <= max_curv
+        if not curv_ok:
+            self.report += "curv={} prev_curv={} ".format(self.radius_of_curvature_m, prev_curvature)
 
         left_x_shift = 0 if prev_left is None else np.absolute(left_line.bestx - prev_left.bestx)
         right_x_shift = 0 if prev_right is None else np.absolute(right_line.bestx - prev_right.bestx)
         lines_x_ok = left_x_shift <= delta_x_pos and right_x_shift <= delta_x_pos
+        if not lines_x_ok:
+            self.report += "l_shift={}, r_shift={} ".format(left_x_shift, right_x_shift)
 
-        return lane_w_ok and parallel and curv_ok and lines_x_ok
+        passed = lane_w_ok and parallel and curv_ok and lines_x_ok
+        self.report += "OK " if passed else "FAIL "
+        return passed
 
     def draw(self):
         res = vs.draw_lane(self.origin_img, self.binary_warped, self.M_inv,
-                           self.left.current_fit, self.right.current_fit)
-        dir = vs.Direction.RIGHT if self.vehicle_shift_m >= 0 else vs.Direction.LEFT
-        res = vs.display_pos_and_curvature(res, np.absolute(self.vehicle_shift_m), dir, self.radius_of_curvature_m)
+                           self.left.current_fit, self.right.current_fit, self.detected)
+        if MODE == Mode.DEBUG:
+            res = vs.display_text(res, self.report)
+        else:
+            dir = vs.Direction.RIGHT if self.vehicle_shift_m >= 0 else vs.Direction.LEFT
+            res = vs.display_pos_and_curvature(res, np.absolute(self.vehicle_shift_m), dir, self.radius_of_curvature_m)
         return res
 
 
@@ -164,7 +189,7 @@ def find_lane(img, prev_lane: Lane, standard_lane_params=STANDARD_LANE_PARAMS):
     return lane
 
 
-def find_lane_on_video(video_path, out_path='output_videos', output_name='output',
+def find_lane_on_video(video_path, wait_steps=25, out_path='output_videos', output_name='output',
                        standard_lane_params=STANDARD_LANE_PARAMS):
     cap = cv2.VideoCapture(video_path)
 
@@ -174,7 +199,6 @@ def find_lane_on_video(video_path, out_path='output_videos', output_name='output
     lane = None
     step = 0
     last_success_step = 0
-    wait_steps = 25
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -187,6 +211,8 @@ def find_lane_on_video(video_path, out_path='output_videos', output_name='output
                 lane = new_lane  # success, use this lane for next lane detection
             elif step - last_success_step > wait_steps:
                 lane = None  # perform sliding window again, too long from last success
+                if MODE == Mode.DEBUG:
+                    save_problematic(new_lane, step)
             elif lane is not None:
                 # if attempt is not successful, just switch origin and retain previous fit
                 lane.origin_img = new_lane.origin_img
@@ -203,6 +229,12 @@ def find_lane_on_video(video_path, out_path='output_videos', output_name='output
     cap.release()
     out.release()
     cv2.destroyAllWindows()
+
+
+def save_problematic(new_lane, step):
+    if not new_lane.detected:
+        fname = "problematic/img" + str(step) + ".jpg"
+        cv2.imwrite(fname, new_lane.draw())
 
 
 def capture_frames(path):
