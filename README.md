@@ -20,8 +20,8 @@ The result of distortion correction is shown below.
 
 All code related to image preprocessing and image thresholding is located in [`processing.py`](processing.py) file. 
 
-Before starting image thresholding, let’s perform simple brightness correction. We use gamma correction method for this. For additional info about gamma correction check out [OpenCV docs](https://docs.opencv.org/3.4/d3/dc1/tutorial_basic_linear_transform.html).  
- We use `gamma=0.7` to make dark image parts lighter. This step could help to detect road lines on the shadowed road parts, where light/shadow contrast could lead to confusion and incorrect results. Also, to reduce noisiness I’ve used [Gaussian blur](https://docs.opencv.org/3.1.0/d4/d13/tutorial_py_filtering.html) with kernel size of 3. 
+Before starting image thresholding, let’s perform simple correction. We use [CLAHE ((Contrast Limited Adaptive Histogram Equalization))](https://docs.opencv.org/3.1.0/d5/daf/tutorial_py_histogram_equalization.html) for this.
+This step could help to detect road lines on the shadowed road parts, where lack of contrast on darker parts could lead to confusion and incorrect results. Also, to reduce noisiness I’ve used [Gaussian blur](https://docs.opencv.org/3.1.0/d4/d13/tutorial_py_filtering.html) with kernel size of 3. 
 
 The results of preprocessing: 
 ![Preprocessing results](writeup_images/preprocessing.png)
@@ -41,10 +41,11 @@ Combined gradient thresholding result:
 
 After a bunch of experiments, I concluded that the balance between efficiency and lines detection is to use [Sobel derivative](https://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html) thresholding on `x` axis. 
 As for color thresholding, I’ve chosen S-channel thresholding. In function `processing.s_channel_threshold` I convert an RGB image to HLS, separate S channel, and drop out all pixels that are not in the threshold range. 
+Finally, I use morphological dilation and erosion to make the edge lines continuous.
 The test result is: 
 ![S-channel threshold](writeup_images/s_channel.png)
 
-The result of combined Sobel and S-channel thresholding:
+The result of combined thresholding:
 ![Combined](writeup_images/combined.png)
 
 ### Perspective transform 
@@ -131,3 +132,18 @@ Harder challenge results are just very sad :(
   
 To see all results check out [project_video.mp4](output_videos/project_video.mp4), [challenge_video.mp4](output_videos/challenge_video.mp4) and [harder_challenge_video.mp4](output_videos/harder_challenge_video.mp4)
 
+### Conclusion
+
+This was an incredibly exciting project! 
+The hardest part was probably threshold calibration part (it is time-consuming because besides looking at binarization results, 
+you need to perform all next steps to make a conclusion about how this step affects the final result) and video processing (especially sanity check part).   
+Despite acceptable performance on the project video, both challenge videos are still too hard for this pipeline to process. 
+In my opinion, the main bottlenecks of this pipeline are: 
+ - perspective transform part: we use statically coordinated as source points, which causes poor results in some cases 
+(lines are not parallel, or lane is too narrow, which causes sanity check fails)
+ - sliding window: if a road is very curved (like in harder challenge video) it fails to find lines pixels 
+ Also, as we can see from challenge videos, there are still problems with lane detection on the road which:
+ - is too shadowed or too bright 
+ - is too curvy 
+ - has other lines (like the line dividing the road of different colors, which honestly sometimes confuses even human drivers)
+To improve lane detection, we need to rework bottleneck parts: use dynamic points for perspective transform and rework/replace sliding window part.
