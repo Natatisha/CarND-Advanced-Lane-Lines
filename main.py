@@ -148,11 +148,13 @@ class Lane:
         return passed
 
     def draw(self):
-        res = vs.draw_lane(self.origin_img, self.binary_warped, self.M_inv,
-                           self.left.current_fit, self.right.current_fit, self.detected)
         if MODE == Mode.DEBUG:
+            res = vs.draw_lane(self.origin_img, self.binary_warped, self.M_inv,
+                               self.left.current_fit, self.right.current_fit, self.detected)
             res = vs.display_text(res, self.report)
         else:
+            res = vs.draw_lane(self.origin_img, self.binary_warped, self.M_inv,
+                               self.left.current_fit, self.right.current_fit)
             dir = vs.Direction.RIGHT if self.vehicle_shift_m >= 0 else vs.Direction.LEFT
             res = vs.display_pos_and_curvature(res, np.absolute(self.vehicle_shift_m), dir, self.radius_of_curvature_m)
         return res

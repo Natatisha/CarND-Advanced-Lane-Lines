@@ -125,14 +125,14 @@ def calc_lines_dist(y_eval, left_fit, right_fit, convert_to_meters=False, lane_w
     return dist if not convert_to_meters else dist * (lane_width_m / lane_width_pix)
 
 
-def check_if_parallel(img_height, left_fit, right_fit, std_delta=50):
+def check_if_parallel(img_height, left_fit, right_fit, std_delta=60):
     points = [point for point in range(0, img_height, int(img_height / 4))]
     distances = [calc_lines_dist(p, left_fit, right_fit, convert_to_meters=False) for p in points]
     return all(i > 0 for i in distances) and np.std(distances) <= std_delta
 
 
 def calc_lane_width(img_height, left_fit, right_fit, lane_width_m=3.7, lane_width_pix=700):
-    points = [point for point in range(0, img_height, int(img_height / 4))]
+    points = [point for point in range(int(img_height / 3), img_height, int(img_height / 4))]
     distances_m = [np.abs(calc_lines_dist(p, left_fit, right_fit, convert_to_meters=True, lane_width_m=lane_width_m,
                                           lane_width_pix=lane_width_pix)) for p in points]
     return np.mean(distances_m)

@@ -67,7 +67,7 @@ def display_polynomial(img, left_fit, right_fit):
     plt.plot(right_fitx, ploty, color='r')
 
 
-def draw_lane(image, warped_image, Minv, left_fit, right_fit):
+def draw_lane(image, warped_image, Minv, left_fit, right_fit, is_good=True):
     ploty = np.linspace(0, warped_image.shape[0] - 1, warped_image.shape[0])
     left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
     right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
@@ -81,7 +81,8 @@ def draw_lane(image, warped_image, Minv, left_fit, right_fit):
     pts = np.hstack((pts_left, pts_right))
 
     # Draw the lane onto the warped blank image
-    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+    color = (0, 255, 0) if is_good else (255, 255, 0)
+    cv2.fillPoly(color_warp, np.int_([pts]), color)
     cv2.polylines(color_warp, np.int_([pts_left]), False, (255, 0, 0), 6)
     cv2.polylines(color_warp, np.int_([pts_right]), False, (0, 0, 255), 6)
 
