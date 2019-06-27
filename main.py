@@ -9,7 +9,7 @@ import cv2
 STANDARD_LANE_PARAMS = {
     "width_px": 700,
     "length_px": 720,
-    "width_m": 3.2,
+    "width_m": 3.7,
     "length_m": 20.
 }
 
