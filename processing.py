@@ -3,6 +3,23 @@ import numpy as np
 import pickle
 
 
+def combine_binaries(b1, b2):
+    assert b1.shape == b2.shape
+    combined_binary = np.zeros_like(b1)
+    combined_binary[(b1 == 1) | (b2 == 1)] = 1
+    return combined_binary
+
+
+def CLAHE(img):
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    lab = cv2.cvtColor(img, cv2.COLOR_RGB2Lab)
+    lab_planes = cv2.split(lab)
+    lab_planes[0] = clahe.apply(lab_planes[0])
+    lab = cv2.merge(lab_planes)
+    res = cv2.cvtColor(lab, cv2.COLOR_Lab2RGB)
+    return res
+
+
 def gamma_correction(img, gamma=1.):
     lookUpTable = np.empty((1, 256), np.uint8)
     for i in range(256):
@@ -11,10 +28,9 @@ def gamma_correction(img, gamma=1.):
     return corrected_img
 
 
-def prepare_for_thresholding(img, blur_krn_size=3, gamma=0.7):
-    corrected = gamma_correction(img, gamma)
-    blured = cv2.GaussianBlur(corrected, (blur_krn_size, blur_krn_size), 0)
-    return blured
+def prepare_for_thresholding(img, blur_krn_size=5, gamma=0.7):
+    blured = cv2.GaussianBlur(img, (blur_krn_size, blur_krn_size), 0)
+    return CLAHE(blured)
 
 
 def abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(0, 255)):
@@ -89,7 +105,13 @@ def threshold(img):
     s_channel = s_channel_threshold(img)
     combined_binary = np.zeros_like(grad)
     combined_binary[(s_channel == 1) | (grad == 1)] = 1
-    return combined_binary
+    return morph(combined_binary)
+
+
+def morph(img):
+    kernel = np.ones((5, 5), np.uint8)
+    closing = cv2.morphologyEx(img.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+    return closing
 
 
 def save_perspective_points(src_points, dst_points, file_path='saved_checkpoints/perspective'):
@@ -109,3 +131,13 @@ def perspective_transform(img, src_points, dst_points):
     M = cv2.getPerspectiveTransform(src_points, dst_points)
     Minv = cv2.getPerspectiveTransform(dst_points, src_points)
     return M, Minv, cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
+
+
+# helper method for thresholds tuning
+def combined_binary_mask(img, krn_size, sobelx_low, sobelx_high, sobely_low, sobely_high, hls_low, hls_high):
+    gradx = abs_sobel_thresh(img, 'x', krn_size, (sobelx_low, sobelx_high))
+    grady = abs_sobel_thresh(img, 'y', krn_size, (sobely_low, sobely_high))
+    grad = np.zeros_like(grady)
+    grad[((gradx == 1) & (grady == 1))] = 1
+    s_channel = s_channel_threshold(img, thresh=(hls_low, hls_high))
+    return combine_binaries(grad, s_channel)
