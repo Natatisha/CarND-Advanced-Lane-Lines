@@ -145,8 +145,9 @@ def calc_vehicle_shift_m(lefty, left_fit, right_fit, img_width, lane_width_m=3.7
 
     center_of_lane = (right_line - left_line) / 2 + left_line
 
-    dist_left = center_of_lane
-    dist_right = img_width - center_of_lane
+    vehicle_pos = img_width / 2
+    res_px = vehicle_pos - center_of_lane
+
     # scale for meters
     xm_per_pix = lane_width_m / (right_line - left_line)
-    return (dist_right - dist_left) * xm_per_pix
+    return res_px * xm_per_pix
